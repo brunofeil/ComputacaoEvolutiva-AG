@@ -91,16 +91,13 @@ crossover = function(individuo1, individuo2)
   indices = 1:tamanhoMax
   corte = sample(x = indices, size = 1)
   
-  if(corte == tamanhoMax)
+  while(corte == tamanhoMax)
   {
-    filho1Cromo = individuo2@cromossomo[1:corte]
-    filho2Cromo = individuo1@cromossomo[1:corte]
+    corte = sample(x = indices, size = 1)
   }
-  else
-  {
-    filho1Cromo = c(individuo2@cromossomo[1:corte], individuo1@cromossomo[(corte+1):tamanhoMax])
-    filho2Cromo = c(individuo1@cromossomo[1:corte], individuo2@cromossomo[(corte+1):tamanhoMax])
-  }
+  
+  filho1Cromo = c(individuo2@cromossomo[1:corte], individuo1@cromossomo[(corte+1):tamanhoMax])
+  filho2Cromo = c(individuo1@cromossomo[1:corte], individuo2@cromossomo[(corte+1):tamanhoMax])
   
   filhos = list(
     new("Individuo",
@@ -214,6 +211,44 @@ visualizaGeracao = function(algoritmoGenetico)
   cat(melhor@notaAvaliacao, soma, "\n")
 }
 
+realizaTorneio = function(populacao)
+{
+  achou = FALSE
+  indice_escolhido = 0
+  while(!achou) #executa até achar
+  {
+    ind1 = sample(1:length(populacao), 1)
+    ind2 = sample(1:length(populacao), 1)
+    
+    if(ind1 != ind2)
+    {
+      if(populacao[[ind1]]@notaAvaliacao > populacao[[ind2]]@notaAvaliacao)
+      {
+        maior = ind1
+        menor = ind2
+      }
+      else
+      {
+        maior = ind2
+        menor = ind1
+      }
+      
+      r = runif(1, 0, 1)
+      if(r < INDICE_TORNEIO)
+      {
+        indice_escolhido = maior
+        achou = TRUE
+      }
+      else
+      {
+        indice_escolhido = menor
+        achou = TRUE
+      }
+    }
+  }
+  return(indice_escolhido)
+}
+
 resolverAG = function(algoritmoGenetico, taxaMutacao, numeroGeracoes, espacos, precos, limiteEspaco)
 {
   ag = algoritmoGenetico
@@ -249,7 +284,7 @@ resolverAG = function(algoritmoGenetico, taxaMutacao, numeroGeracoes, espacos, p
       else if(i > ELITE && i <= tamanho/2) #A população média se mistura com a elite
       {
         aux_i = i - 10
-        indicePaiElite = sample(1:10, 1)
+        indicePaiElite = realizaTorneio(ag@elite)
         filhos = crossover(ag@elite[[indicePaiElite]], ag@media[[aux_i]])
         
         filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
@@ -267,7 +302,9 @@ resolverAG = function(algoritmoGenetico, taxaMutacao, numeroGeracoes, espacos, p
         aux_i = i - 50
         if(indicepai <= 10) #O indivíduo abaixo da média em questão se mistura com um da elite
         {
-          filhos = crossover(ag@elite[[indicepai]], ag@abaixoMedia[[aux_i]])
+          indicePaiElite = realizaTorneio(ag@elite)
+          
+          filhos = crossover(ag@elite[[indicePaiElite]], ag@abaixoMedia[[aux_i]])
           
           filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
           filhos[[2]] = mutacao(filhos[[2]], probabilidadeMutacao)
@@ -279,8 +316,8 @@ resolverAG = function(algoritmoGenetico, taxaMutacao, numeroGeracoes, espacos, p
         }
         else #O indivíduo abaixo da média em questão se mistura com um da média
         {
-          indicepai = indicepai - 10
-          filhos = crossover(ag@media[[indicepai]], ag@abaixoMedia[[aux_i]])
+          indicePaiMedia = realizaTorneio(ag@media)
+          filhos = crossover(ag@media[[indicePaiMedia]], ag@abaixoMedia[[aux_i]])
           
           filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
           filhos[[2]] = mutacao(filhos[[2]], probabilidadeMutacao)
@@ -292,7 +329,7 @@ resolverAG = function(algoritmoGenetico, taxaMutacao, numeroGeracoes, espacos, p
         }
       }
       
-      # pai1 = selecionaPai(ag, soma) #Índices dos pais
+      pai1 = selecionaPai(ag, soma) #Índices dos pais
       # pai2 = selecionaPai(ag, soma)
       # 
       # filhos = crossover(ag@populacao[[pai1]], ag@populacao[[pai2]])
@@ -392,6 +429,7 @@ numeroGeracoes = 200
 ELITE = (tamanho*10)/100 #10% da população
 MEDIA = (tamanho*40)/100 #40% da população
 ABAIXO_MEDIA = (tamanho*50)/100 #50% da população
+INDICE_TORNEIO = 0.75
 
 
 ag = new("AlgoritmoGenetico", tamanhoPopulacao = tamanho) #Cria a população
