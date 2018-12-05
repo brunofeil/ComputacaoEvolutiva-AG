@@ -1,4 +1,3 @@
-
 setClass(
   "Produto",
   slots = c(
@@ -34,6 +33,9 @@ setClass(
   "AlgoritmoGenetico",
   slots = c(
     tamanhoPopulacao = "numeric",
+    elite = "list",
+    media = "list",
+    abaixoMedia = "list",
     populacao = "list",
     geracao = "numeric",
     melhorIndividuo = "Individuo"
@@ -69,11 +71,11 @@ avaliacao = function(individuo)
   {
     if(individuo@cromossomo[i] == '1')
     {
-        nota = nota + individuo@precos[i]
-        tamanhoUtilizado = tamanhoUtilizado + individuo@espacos[i]
+      nota = nota + individuo@precos[i]
+      tamanhoUtilizado = tamanhoUtilizado + individuo@espacos[i]
     }
   }
-
+  
   if(tamanhoUtilizado > individuo@limiteEspaco)
     nota = 1
   
@@ -121,11 +123,11 @@ crossover = function(individuo1, individuo2)
 
 inicializaPopulacao = function(algoGenetico, espacos, precos, limiteEspaco)
 {
-   for(i in 1:algoGenetico@tamanhoPopulacao)
-   {
-     algoGenetico@populacao[[i]] = new("Individuo", espacos = espacos, precos = precos, limiteEspaco = limiteEspaco)
-     algoGenetico@populacao[[i]]@cromossomo = gerarCromossomo(length(espacos))
-   }
+  for(i in 1:algoGenetico@tamanhoPopulacao)
+  {
+    algoGenetico@populacao[[i]] = new("Individuo", espacos = espacos, precos = precos, limiteEspaco = limiteEspaco)
+    algoGenetico@populacao[[i]]@cromossomo = gerarCromossomo(length(espacos))
+  }
   
   return (algoGenetico)
 }
@@ -145,6 +147,31 @@ ordenaPopulacao = function(populacao)
     populacaoOrdenada = c(populacaoOrdenada, populacao[[listaPosicao[i]]])
   }
   return(populacaoOrdenada)
+}
+
+elitizaPopulacao = function(ag)
+{
+  elite = c()
+  media = c()
+  abaixo_media = c()
+  for(i in 1:ag@tamanhoPopulacao)
+  {
+    if(i <= ELITE)
+      elite = c(elite, ag@populacao[[i]])
+    
+    else if (i > ELITE && i <= tamanho/2)
+      media = c(media, ag@populacao[[i]])
+    
+    else
+      abaixo_media = c(abaixo_media, ag@populacao[[i]])
+  }
+  
+  ag@elite = elite
+  ag@media = media
+  ag@abaixoMedia = abaixo_media
+  
+  return(ag)
+  
 }
 
 achaMelhorIndividuo = function(individuo, ag)
@@ -180,9 +207,9 @@ selecionaPai = function(ag, somaAvaliacoes)
 
 visualizaGeracao = function(algoritmoGenetico)
 {
-  melhor = algoritmoGenetico@populacao[[1]]#A populaÁ„o est· ordenada
+  melhor = algoritmoGenetico@populacao[[1]]#A popula√ß√£o est√° ordenada
   #cat("\nG:", melhor@geracao, " Valor: ", melhor@notaAvaliacao,
-  #    " EspaÁo utilizado: ", melhor@espacoOcupado, " Cromossomo: ", melhor@cromossomo)
+  #    " Espa√ßo utilizado: ", melhor@espacoOcupado, " Cromossomo: ", melhor@cromossomo)
   soma = somaAvaliacoes(algoritmoGenetico) / algoritmoGenetico@tamanhoPopulacao
   cat(melhor@notaAvaliacao, soma, "\n")
 }
@@ -190,51 +217,109 @@ visualizaGeracao = function(algoritmoGenetico)
 resolverAG = function(algoritmoGenetico, taxaMutacao, numeroGeracoes, espacos, precos, limiteEspaco)
 {
   ag = algoritmoGenetico
-  ag = inicializaPopulacao(ag, espacos, precos, limiteEspaco) #Inicializa a populaÁ„o
+  ag = inicializaPopulacao(ag, espacos, precos, limiteEspaco) #Inicializa a popula√ß√£o
   
-  for(i in 1:length(ag@populacao)) #Avalia a populaÁ„o
+  for(i in 1:length(ag@populacao)) #Avalia a popula√ß√£o
   {
-      ag@populacao[[i]] = avaliacao(ag@populacao[[i]])
+    ag@populacao[[i]] = avaliacao(ag@populacao[[i]])
   }
   
   ag@populacao = ordenaPopulacao(ag@populacao)
-  ag = achaMelhorIndividuo(ag@populacao[[1]], ag) #DefiniÁ„o do melhor indivÌduo
+  ag = elitizaPopulacao(ag)
+  ag = achaMelhorIndividuo(ag@populacao[[1]], ag) #Defini√ß√£o do melhor indiv√≠duo
   
-  visualizaGeracao(ag) #Visualizar a geraÁ„o atual
+  visualizaGeracao(ag) #Visualizar a gera√ß√£o atual
   
   for(geracao in 1:numeroGeracoes)
   {
-    soma = somaAvaliacoes(ag) #Soma todas as avaliaÁıes
+    soma = somaAvaliacoes(ag) #Soma todas as avalia√ß√µes
     
-    novaPopulacao = c() #Cria nova populaÁ„o
-    for(i in 1:(ag@tamanhoPopulacao/2))
+    novaPopulacao = c() #Cria nova popula√ß√£o
+    
+    # ----------------------------> Cria nova popula√ß√£o <----------------------------
+    for(i in 1:(ag@tamanhoPopulacao))
     {
-      pai1 = selecionaPai(ag, soma) #Õndices dos pais
-      pai2 = selecionaPai(ag, soma)
-
-      filhos = crossover(ag@populacao[[pai1]], ag@populacao[[pai2]])
-
-      filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
-      filhos[[2]] = mutacao(filhos[[2]], probabilidadeMutacao)
-
-      novaPopulacao = c(novaPopulacao, filhos[[1]])
-      novaPopulacao = c(novaPopulacao, filhos[[2]])
+      
+      if(i <= ELITE) #A elite continua a mesma
+      {
+        filho = ag@populacao[[i]]
+        novaPopulacao = c(novaPopulacao, filho)
+      }
+      
+      else if(i > ELITE && i <= tamanho/2) #A popula√ß√£o m√©dia se mistura com a elite
+      {
+        aux_i = i - 10
+        indicePaiElite = sample(1:10, 1)
+        filhos = crossover(ag@elite[[indicePaiElite]], ag@media[[aux_i]])
+        
+        filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
+        filhos[[2]] = mutacao(filhos[[2]], probabilidadeMutacao)
+        
+        novaPopulacao = c(novaPopulacao, filhos[[1]])
+        novaPopulacao = c(novaPopulacao, filhos[[2]])
+        
+        i = i + 1
+      }
+      
+      else #A popula√ß√£o abaixo da m√©dia se mistura com a elite ou com a m√©dia
+      {
+        indicepai = sample(1:50, 1)
+        aux_i = i - 50
+        if(indicepai <= 10) #O indiv√≠duo abaixo da m√©dia em quest√£o se mistura com um da elite
+        {
+          filhos = crossover(ag@elite[[indicepai]], ag@abaixoMedia[[aux_i]])
+          
+          filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
+          filhos[[2]] = mutacao(filhos[[2]], probabilidadeMutacao)
+          
+          novaPopulacao = c(novaPopulacao, filhos[[1]])
+          novaPopulacao = c(novaPopulacao, filhos[[2]])
+          
+          i = i + 1
+        }
+        else #O indiv√≠duo abaixo da m√©dia em quest√£o se mistura com um da m√©dia
+        {
+          indicepai = indicepai - 10
+          filhos = crossover(ag@media[[indicepai]], ag@abaixoMedia[[aux_i]])
+          
+          filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
+          filhos[[2]] = mutacao(filhos[[2]], probabilidadeMutacao)
+          
+          novaPopulacao = c(novaPopulacao, filhos[[1]])
+          novaPopulacao = c(novaPopulacao, filhos[[2]])
+          
+          i = i + 1
+        }
+      }
+      
+      # pai1 = selecionaPai(ag, soma) #√çndices dos pais
+      # pai2 = selecionaPai(ag, soma)
+      # 
+      # filhos = crossover(ag@populacao[[pai1]], ag@populacao[[pai2]])
+      # 
+      # filhos[[1]] = mutacao(filhos[[1]], probabilidadeMutacao)
+      # filhos[[2]] = mutacao(filhos[[2]], probabilidadeMutacao)
+      # 
+      # novaPopulacao = c(novaPopulacao, filhos[[1]])
+      # novaPopulacao = c(novaPopulacao, filhos[[2]])
     }
     
-    ag@populacao = novaPopulacao #Descarta a populaÁ„o antiga
+    # --------------------------> FIM cria nova popula√ß√£o <--------------------------
     
-    for(i in 1:ag@tamanhoPopulacao) #Avalia a nova populaÁ„o
+    ag@populacao = novaPopulacao #Descarta a popula√ß√£o antiga
+    
+    for(i in 1:ag@tamanhoPopulacao) #Avalia a nova popula√ß√£o
     {
       ag@populacao[[i]] = avaliacao(ag@populacao[[i]])
     }
     
     ag@populacao = ordenaPopulacao(ag@populacao)
-    visualizaGeracao(ag) #Visualizar a geraÁ„o atual
-    ag = achaMelhorIndividuo(ag@populacao[[1]], ag) #Acha o melhor indivÌduo da populaÁ„o
+    visualizaGeracao(ag) #Visualizar a gera√ß√£o atual
+    ag = achaMelhorIndividuo(ag@populacao[[1]], ag) #Acha o melhor indiv√≠duo da popula√ß√£o
     
   }
   
-  cat("\nMelhor soluÁ„o - G: ", ag@melhorIndividuo@geracao, " Valor: ", ag@melhorIndividuo@notaAvaliacao,
+  cat("\nMelhor solu√ß√£o - G: ", ag@melhorIndividuo@geracao, " Valor: ", ag@melhorIndividuo@notaAvaliacao,
       " Espaco utilizao: ", ag@melhorIndividuo@espacoOcupado, " Cromossomo: ", ag@melhorIndividuo@cromossomo)
   return(ag)
 }
@@ -304,9 +389,14 @@ limite = 1000
 tamanho = 100
 probabilidadeMutacao = 0.05
 numeroGeracoes = 200
+ELITE = (tamanho*10)/100 #10% da popula√ß√£o
+MEDIA = (tamanho*40)/100 #40% da popula√ß√£o
+ABAIXO_MEDIA = (tamanho*50)/100 #50% da popula√ß√£o
 
-ag = new("AlgoritmoGenetico", tamanhoPopulacao = tamanho) #Cria a populaÁ„o
 
+ag = new("AlgoritmoGenetico", tamanhoPopulacao = tamanho) #Cria a popula√ß√£o
+
+print(ELITE)
 ag = resolverAG(ag, probabilidadeMutacao, numeroGeracoes, espacos, valores, limite)
 
 for(i in 1:length(listaProdutos))
